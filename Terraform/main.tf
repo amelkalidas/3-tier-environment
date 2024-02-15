@@ -193,6 +193,12 @@ resource "aws_security_group" "web_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.external_alb_sg.id]
   }
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [chomp(data.http.ipinfo.body)]
+  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -230,6 +236,12 @@ resource "aws_security_group" "app_sg" {
     to_port         = 4000
     protocol        = "tcp"
     security_groups = [aws_security_group.internal_alb_sg.id]
+  }
+  ingress {
+    from_port = 4000
+    to_port = 4000
+    protocol = "tcp"
+    security_groups = [chomp(data.http.ipinfo.body)]
   }
   egress {
     from_port   = 0
