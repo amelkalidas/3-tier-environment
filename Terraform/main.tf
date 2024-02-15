@@ -197,7 +197,7 @@ resource "aws_security_group" "web_sg" {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [chomp(data.http.ipinfo.body)]
+    cidr_blocks  = ["${chomp(data.http.ipinfo.response_body)}/32"]
   }
   egress {
     from_port   = 0
@@ -241,7 +241,7 @@ resource "aws_security_group" "app_sg" {
     from_port = 4000
     to_port = 4000
     protocol = "tcp"
-    security_groups = [chomp(data.http.ipinfo.body)]
+    cidr_blocks = ["${chomp(data.http.ipinfo.response_body)}/32"]
   }
   egress {
     from_port   = 0
@@ -322,8 +322,8 @@ resource "aws_rds_cluster" "example" {
   engine_version          = "8.0.mysql_aurora.3.02.0"
   availability_zones      = [var.availability_zone_A, var.availability_zone_C]
   database_name           = "admin"
-  master_username         = "adminpassword"
-  master_password         = "adminpassword"
+  master_username         = "adminpassword123"
+  master_password         = "adminpassword123"
   backup_retention_period = 5
   preferred_backup_window = "07:00-09:00"
   skip_final_snapshot     = true
