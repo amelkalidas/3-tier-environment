@@ -1,11 +1,3 @@
-data "aws_iam_policy" "ssm" {
-  arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-  
-}
-data "aws_iam_policy" "s3" {
-  arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
-  
-}
 # Create the IAM role
 resource "aws_iam_role" "ec2ssmrole_dev" {
   name = "ec2ssmrole_dev"
