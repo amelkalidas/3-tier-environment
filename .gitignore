@@ -1,0 +1,4 @@
+Terraform/m3.tfplan
+Terraform/.terraform
+Terraform/.git
+Terraform/**.tfstate.**
