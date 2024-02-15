@@ -174,6 +174,13 @@ resource "aws_security_group" "external_alb_sg" {
     protocol    = "tcp"
     cidr_blocks = [var.My_IP]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 resource "aws_security_group" "web_sg" {
   name        = "web_sg"
@@ -185,6 +192,12 @@ resource "aws_security_group" "web_sg" {
     to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.external_alb_sg.id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 resource "aws_security_group" "internal_alb_sg" {
@@ -198,6 +211,14 @@ resource "aws_security_group" "internal_alb_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.web_sg.id]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
 }
 resource "aws_security_group" "app_sg" {
   name        = "app_sg"
@@ -210,6 +231,12 @@ resource "aws_security_group" "app_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.internal_alb_sg.id]
   }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 resource "aws_security_group" "db_sg" {
   name        = "db_sg"
@@ -221,6 +248,12 @@ resource "aws_security_group" "db_sg" {
     to_port         = 3306
     protocol        = "tcp"
     security_groups = [aws_security_group.app_sg.id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 #######################################################################################################
@@ -236,6 +269,7 @@ resource "aws_instance" "web_ec2" {
     aws_security_group.web_sg.id,
   ]
   iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+  
   
   tags = {
     Name = "web_instance"
@@ -274,7 +308,7 @@ resource "aws_rds_cluster" "example" {
   cluster_identifier      = "aurora-db-1"
   engine                  = "aurora-mysql"
   engine_version          = "8.0.mysql_aurora.3.02.0"
-  availability_zones      = ["ap-southeast-1a", "ap-southeast-1c"]
+  availability_zones      = [var.availability_zone_A, var.availability_zone_C]
   database_name           = "admin"
   master_username         = "adminpassword"
   master_password         = "adminpassword"
@@ -283,6 +317,9 @@ resource "aws_rds_cluster" "example" {
   skip_final_snapshot     = true
   db_subnet_group_name    = aws_db_subnet_group.auroradbsubnetgroup.id
   vpc_security_group_ids  = [aws_security_group.db_sg.id]
+  lifecycle {
+    ignore_changes = [cluster_identifier, engine, master_username, master_password, engine_version, database_name,availability_zones]
+  }
   
 }
 resource "aws_rds_cluster_instance" "cluster_instances" {
@@ -294,7 +331,7 @@ resource "aws_rds_cluster_instance" "cluster_instances" {
   engine_version     = aws_rds_cluster.example.engine_version
   db_subnet_group_name = aws_db_subnet_group.auroradbsubnetgroup.id
   lifecycle {
-    ignore_changes = [cluster_identifier, instance_class]
+    ignore_changes =  [cluster_identifier, identifier, instance_class, engine, engine_version]
   }
 }
 

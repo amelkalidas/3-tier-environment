@@ -51,7 +51,7 @@ variable "ec2_instance_type" {
   default = "t2.micro"
 }
 variable "ec2_ami" {
-  default = "ami-08db74f389216e7e0"
+  default = "ami-0702b1aec03c6a3a4"
 }
 
 variable "s3_bucket" {
