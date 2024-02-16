@@ -172,7 +172,7 @@ resource "aws_security_group" "external_alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = [var.My_IP]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -330,7 +330,7 @@ resource "aws_rds_cluster" "example" {
   db_subnet_group_name    = aws_db_subnet_group.auroradbsubnetgroup.id
   vpc_security_group_ids  = [aws_security_group.db_sg.id]
   lifecycle {
-    ignore_changes = [cluster_identifier, engine, master_username, master_password, engine_version, database_name,availability_zones]
+    ignore_changes = [engine, master_username, master_password, engine_version, database_name,availability_zones]
   }
   
 }
@@ -343,7 +343,7 @@ resource "aws_rds_cluster_instance" "cluster_instances" {
   engine_version     = aws_rds_cluster.example.engine_version
   db_subnet_group_name = aws_db_subnet_group.auroradbsubnetgroup.id
   lifecycle {
-    ignore_changes =  [cluster_identifier, identifier, instance_class, engine, engine_version]
+    ignore_changes =  [identifier, engine, engine_version, cluster_identifier]
   }
 }
 
@@ -353,9 +353,101 @@ resource "aws_rds_cluster_instance" "cluster_instances" {
 
 resource "aws_s3_bucket" "storage" {
   bucket = var.s3_bucket
+  force_destroy = true
 
   tags = {
     Name        = "mys3for3tierapp15"
     Environment = "Dev"
   }
 }
+
+
+#######################  Load Balancer ###############################
+
+resource "aws_lb_target_group" "privt_app" {
+  name = "targetgroup-prvt-ec2"
+  port = 80
+  protocol = "HTTP"
+  vpc_id = aws_vpc.main.id
+
+
+  health_check {
+    enabled = true
+    interval = 30
+    path = "/health"
+    protocol = "HTTP"
+    healthy_threshold = 3
+    unhealthy_threshold = 3
+  }  
+}
+resource "aws_lb" "internal_lb" {
+  name               = "internallb"
+  internal           = true
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.internal_alb_sg.id]
+  subnets            = [aws_subnet.App_Private_A.id,aws_subnet.App_Private_C.id]
+  tags = {
+    Environment = "Internal"
+  }
+}
+resource "aws_lb_target_group_attachment" "prvt_app_attach" {
+  target_group_arn = aws_lb_target_group.privt_app.arn
+  target_id        = aws_instance.app_ec2.id
+  port             = 80
+  
+}
+resource "aws_lb_listener" "back_end" {
+  load_balancer_arn = aws_lb.internal_lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.privt_app.arn
+  }
+}
+
+
+resource "aws_lb_target_group" "public_tg" {
+  name = "tg-public-ec2"
+  port = 80
+  protocol = "HTTP"
+  vpc_id = aws_vpc.main.id
+
+
+  health_check {
+    enabled = true
+    interval = 30
+    path = "/health"
+    protocol = "HTTP"
+    healthy_threshold = 3
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb" "external_lb" {
+  name               = "external-lb"
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.external_alb_sg.id]
+  subnets            = [aws_subnet.web_public_1.id,aws_subnet.Web_public_2.id]
+  tags = {
+    Environment = "External"
+  }
+}
+resource "aws_lb_target_group_attachment" "public_app_attach" {
+  target_group_arn = aws_lb_target_group.public_tg.arn
+  target_id        = aws_instance.web_ec2.id
+  port             = 80
+
+}
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = aws_lb.external_lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.public_tg.arn
+  }
+}
+

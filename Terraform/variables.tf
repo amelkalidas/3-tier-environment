@@ -42,10 +42,7 @@ variable "private_DB_sub_cidrs_AZ3" {
   default = "10.10.21.0/24"
 }
 #############################
-variable "My_IP" {
-  type    = string
-  default = "109.129.123.2/32"
-}
+
 
 variable "ec2_instance_type" {
   default = "t2.micro"
