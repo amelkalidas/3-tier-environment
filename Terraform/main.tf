@@ -2,7 +2,6 @@
 provider "aws" {
   region = var.region
 }
-
 resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
   enable_dns_hostnames = true
@@ -316,10 +315,10 @@ resource "aws_db_subnet_group" "auroradbsubnetgroup" {
 }
 
 
-resource "aws_rds_cluster" "example" {
+resource "aws_rds_cluster" "WebDB" {
   cluster_identifier      = "aurora-db-1"
   engine                  = "aurora-mysql"
-  engine_version          = "8.0.mysql_aurora.3.02.0"
+  engine_version          = "8.0.mysql_aurora.3.04.0"
   availability_zones      = [var.availability_zone_A, var.availability_zone_C]
   database_name           = "admin"
   master_username         = "adminpassword123"
@@ -337,17 +336,15 @@ resource "aws_rds_cluster" "example" {
 resource "aws_rds_cluster_instance" "cluster_instances" {
   count              = 2
   identifier         = "aurora-db-1-${count.index}"
-  cluster_identifier = aws_rds_cluster.example.id
+  cluster_identifier = aws_rds_cluster.WebDB.id
   instance_class     = "db.r5.xlarge"
-  engine             = aws_rds_cluster.example.engine
-  engine_version     = aws_rds_cluster.example.engine_version
+  engine             = aws_rds_cluster.WebDB.engine
+  engine_version     = aws_rds_cluster.WebDB.engine_version
   db_subnet_group_name = aws_db_subnet_group.auroradbsubnetgroup.id
   lifecycle {
     ignore_changes =  [identifier, engine, engine_version, cluster_identifier]
   }
 }
-
-############# created 36 Resources. 
 
 # S3 Bucket creation. 
 
@@ -398,7 +395,7 @@ resource "aws_lb_target_group_attachment" "prvt_app_attach" {
 }
 resource "aws_lb_listener" "back_end" {
   load_balancer_arn = aws_lb.internal_lb.arn
-  port              = "80"
+  port              = "4000"
   protocol          = "HTTP"
 
   default_action {
@@ -450,4 +447,83 @@ resource "aws_lb_listener" "front_end" {
     target_group_arn = aws_lb_target_group.public_tg.arn
   }
 }
+#################################### New ###################################
 
+resource "aws_launch_template" "Public_LT_ASG" {
+  name = "web_tier_LT"
+  image_id = var.image_id
+  instance_type = var.ec2_instance_type  
+}
+
+resource "aws_launch_template" "PRVT_LT_ASG" {
+  name = "App_tier_LT"
+  image_id = var.image_id
+  instance_type = var.ec2_instance_type  
+}
+
+
+################# auto scalling ###############################
+
+resource "aws_autoscaling_group" "Web_ASG" {
+  name                      = "web_tier_ASG"
+  max_size                  = 2
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 2
+  force_delete              = true
+  target_group_arns         = [aws_lb_target_group.public_tg.arn]
+  launch_template {
+    id = aws_launch_template.Public_LT_ASG.id
+    version = "$Latest"
+  }
+  
+  vpc_zone_identifier       = [aws_subnet.web_public_1.id,aws_subnet.Web_public_2.id]
+
+  instance_maintenance_policy {
+    min_healthy_percentage = 90
+    max_healthy_percentage = 120
+  }
+  
+
+  
+  tag {
+    key                 = "Type"
+    value               = "External"
+    propagate_at_launch = true
+  }
+
+  
+}
+
+resource "aws_autoscaling_group" "APP_ASG" {
+  name                      = "APP_tier_ASG"
+  max_size                  = 2
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 2
+  force_delete              = true
+  target_group_arns         = [aws_lb_target_group.privt_app.arn]
+  launch_template {
+    id = aws_launch_template.PRVT_LT_ASG.id
+    version = "$Latest"
+  }
+  
+  vpc_zone_identifier       = [aws_subnet.App_Private_A.id,aws_subnet.App_Private_C.id]
+
+  instance_maintenance_policy {
+    min_healthy_percentage = 90
+    max_healthy_percentage = 120
+  }
+  
+
+  
+  tag {
+    key                 = "Type"
+    value               = "INternal"
+    propagate_at_launch = true
+  }
+
+  
+}

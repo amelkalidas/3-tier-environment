@@ -52,7 +52,9 @@ variable "ec2_ami" {
 }
 
 variable "s3_bucket" {
-  default = "mys3for3tierapp15"
+  default = "mys3for3tierapp15"  
+}
 
-  
+variable "image_id" {  
+  default = "ami-08db74f389216e7e0"
 }
